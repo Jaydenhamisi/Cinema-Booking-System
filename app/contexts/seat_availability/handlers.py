@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
-from .service import SeatAvailabilityService
-from .repository import SeatLockRepository
+from .service import SeatAvailabilityService, SeatLockRepository
 
 seat_service = SeatAvailabilityService()
 seat_repo = SeatLockRepository()
