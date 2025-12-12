@@ -41,7 +41,7 @@ async def on_reservation_cancelled(payload: dict):
     reservation_id = payload.get("reservation_id")
 
     if not reservation_id:
-            return
+        return
     
     db = SessionLocal()
     try:
