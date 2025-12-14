@@ -1,6 +1,6 @@
 # app/contexts/pricing/router.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,6 +17,10 @@ from .schemas import (
 router = APIRouter()
 repo = PricingRepository()
 
+router = APIRouter(
+    prefix="/pricing",
+    tags=["pricing"],
+)
 
 @router.post("/modifiers", response_model=PriceModifierRead)
 def create_modifier(
@@ -49,7 +53,7 @@ def get_modifier(
 ):
     modifier = repo.get_modifier_by_id(db, modifier_id)
     if not modifier:
-        raise HTTPException(404, "Modifier not found")
+        raise NotFoundError("Modifier not found")
     return modifier
 
 
@@ -61,7 +65,7 @@ def update_modifier(
 ):
     modifier = repo.get_modifier_by_id(db, modifier_id)
     if not modifier:
-        raise HTTPException(404, "Modifier not found")
+        raise NotFoundError("Modifier not found")
 
     # Update only fields provided
     if data.name is not None:
@@ -86,7 +90,7 @@ def delete_modifier(
 ):
     modifier = repo.get_modifier_by_id(db, modifier_id)
     if not modifier:
-        raise HTTPException(404, "Modifier not found")
+        raise NotFoundError("Modifier not found")
 
     repo.delete_modifier(db, modifier)
     return {"status": "deleted"}
