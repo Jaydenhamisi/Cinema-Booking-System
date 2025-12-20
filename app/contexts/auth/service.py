@@ -14,6 +14,10 @@ from .security import (
     decode_token,
 )
 from app.contexts.auth.repository import AuthRepository
+from app.contexts.auth.events import (
+    user_registered_event,
+    user_logged_in_event,
+)
 from app.shared.services.event_publisher import publish_event
 
 
@@ -44,10 +48,8 @@ class AuthService:
         user = self.repo.create_user(db, email=payload.email, hashed_password=hashed)
         
         # Emit event
-        publish_event("auth.user_registered", {
-            "user_id": user.id,
-            "email": user.email,
-        })
+        event = user_registered_event(user.id, user.email)
+        publish_event(event["type"], event["payload"])
         
         return user
 
@@ -80,10 +82,8 @@ class AuthService:
         )
         
         # Emit event
-        publish_event("auth.user_logged_in", {
-            "user_id": user.id,
-            "email": user.email,
-        })
+        event = user_logged_in_event(user.id, user.email)
+        publish_event(event["type"], event["payload"])
 
         return TokenResponse(
             access_token=access_token,
