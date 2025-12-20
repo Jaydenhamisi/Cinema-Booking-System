@@ -20,3 +20,5 @@ class UserCredential(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     token_version = Column(Integer, nullable=False, default=0)
+    
+    user_type = Column(String, nullable=False, default="user")
