@@ -2,9 +2,9 @@ from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
 from app.contexts.refund.service import issue_refund_from_event
-from order.repository import OrderRepository
-from payment.repository import PaymentRepository
-from reservation.repository import ReservationRepository
+from app.contexts.order.repository import OrderRepository
+from app.contexts.payment.repository import PaymentRepository
+from app.contexts.reservation.repository import ReservationRepository
 
 order_repo = OrderRepository()
 payment_repo = PaymentRepository()

@@ -4,9 +4,9 @@ from app.core.errors import ValidationError, NotFoundError, ConflictError
 from app.shared.services.event_publisher import publish_event
 
 from .models import Refund, RefundStatus
-from payment.models import PaymentStatus
+from app.contexts.payment.models import PaymentStatus
 from .repository import RefundRepository
-from payment.repository import PaymentRepository
+from app.contexts.payment.repository import PaymentRepository
 from .events import (
     refund_issued_event,
     refund_failed_event
