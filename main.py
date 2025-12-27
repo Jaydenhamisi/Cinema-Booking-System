@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 
 from app.core.config import settings
+from app.core.logging_config import setup_logging
+from app.core.middleware import RequestLoggingMiddleware
+
 from app.contexts.auth.router import router as auth_router
 from app.contexts.user.router import router as user_router
 from app.contexts.movie.router import router as movie_router
@@ -29,8 +33,19 @@ from app.contexts.refund import handlers as refund_handlers
 from app.contexts.notification import handlers as notification_handlers
 from app.contexts.audit import handlers as audit_handlers
 
-app = FastAPI(title=settings.PROJECT_NAME)
+# Set up logging FIRST (before creating app)
+setup_logging(log_level='DEBUG')
+logger = logging.getLogger(__name__)
 
+# Create FastAPI app
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description="DDD-based cinema booking system with event-driven architecture",
+    version="1.0.0"
+)
+
+# Add middleware (ORDER MATTERS - RequestLogging should be first)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -39,6 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(movie_router)
@@ -52,6 +68,44 @@ app.include_router(payment_router)
 app.include_router(refund_router)
 app.include_router(admin_router)
 
+
+@app.on_event("startup")
+async def startup_event():
+    """Log all registered routes on startup"""
+    logger.info("🎬 Cinema Booking System starting up...")
+    logger.info("Registered routes:")
+    
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            methods = ','.join(route.methods) if route.methods else 'UNKNOWN'
+            logger.info(f"  {methods:10} {route.path}")
+    
+    logger.info("All event handlers registered")
+    logger.info("System ready to accept requests")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Log shutdown"""
+    logger.info("Cinema Booking System shutting down...")
+
+
 @app.get("/")
 def root():
-    return {"status": "Cinema API running!"}
+    """Root endpoint - health check"""
+    logger.debug("Root endpoint hit")
+    return {
+        "status": "Cinema API running!",
+        "service": settings.PROJECT_NAME,
+        "version": "1.0.0"
+    }
+
+
+@app.get("/health")
+def health_check():
+    """Detailed health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": settings.PROJECT_NAME,
+        "timestamp": "2024-12-27T12:00:00Z"
+    }
