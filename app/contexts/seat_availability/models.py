@@ -11,7 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Enum as SAEnum
 )
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class StatusEnum(str, PyEnum):

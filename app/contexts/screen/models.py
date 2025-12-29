@@ -3,7 +3,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class Screen(Base):
@@ -22,11 +22,7 @@ class Screen(Base):
     )
 
     # Relationship to the SeatLayout aggregate (same context)
-    layout = relationship(
-        "SeatLayout",
-        back_populates="screens",
-        lazy="selectin",
-    )
+    layout = relationship("SeatLayout")
     # IMPORTANT: no relationship to Showtime here.
     # ShowtimeContext will reference Screen, not the other way around.
 
@@ -43,11 +39,7 @@ class SeatLayout(Base):
     # Optional structural grid JSON (seat types, blocked seats, etc.)
     grid = Column(JSON, nullable=True)
 
-    screens = relationship(
-        "Screen",
-        back_populates="layout",
-        lazy="selectin",
-    )
+    screens = relationship("Screen")
 
 
 

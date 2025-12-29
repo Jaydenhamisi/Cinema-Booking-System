@@ -10,6 +10,7 @@ order_repo = OrderRepository()
 payment_repo = PaymentRepository()
 reservation_repo = ReservationRepository()
 
+
 async def on_reservation_cancelled(payload: dict):
     reservation_id = payload.get("reservation_id")
     if not reservation_id:
@@ -40,5 +41,6 @@ async def on_reservation_cancelled(payload: dict):
         db.close()
 
 
-        
+# ADD THIS LINE:
+event_bus.subscribe("reservation.cancelled", on_reservation_cancelled)
         

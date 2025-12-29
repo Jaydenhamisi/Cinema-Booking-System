@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class Order(Base):
@@ -36,4 +36,4 @@ class Order(Base):
         server_default=func.now()
     )
 
-    reservation = relationship("reservation", back_populates= "orders")
+    reservation = relationship("Reservation")

@@ -41,9 +41,12 @@ async def on_reservation_cancelled(payload: dict):
 async def on_payment_succeeded(payload: dict):
     db = SessionLocal()
     try:
+        # Get user_id from payload (will be added in Fix 1)
+        user_id = payload.get("user_id")
+        
         write_audit_log(
             db=db,
-            actor_id=payload.get("user_id"),
+            actor_id=user_id,  # Use the user_id from payment event
             actor_type="user",
             action="payment.succeeded",
             target_type="order",
@@ -57,9 +60,12 @@ async def on_payment_succeeded(payload: dict):
 async def on_payment_failed(payload: dict):
     db = SessionLocal()
     try:
+        # Get user_id from payload (will be added in Fix 1)
+        user_id = payload.get("user_id")
+        
         write_audit_log(
             db=db,
-            actor_id=payload.get("user_id"),
+            actor_id=user_id,  # Use the user_id from payment event
             actor_type="user",
             action="payment.failed",
             target_type="order",

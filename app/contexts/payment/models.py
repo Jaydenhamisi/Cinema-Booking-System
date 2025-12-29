@@ -12,7 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.core.base import Base 
 
 class PaymentStatus(str, PyEnum):
     PENDING = "pending"
@@ -47,4 +47,4 @@ class PaymentAttempt(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    order = relationship("Order", back_populates="payment_attempts")
+    order = relationship("Order")

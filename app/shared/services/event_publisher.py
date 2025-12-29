@@ -1,23 +1,25 @@
 # app/shared/services/event_publisher.py
 
 import asyncio
+import logging
 from typing import Any, Dict
 
 from app.core.event_bus import event_bus
 
+logger = logging.getLogger(__name__)
+
 
 def publish_event(event_type: str, payload: Dict[str, Any]) -> None:
     """
-    Fire-and-forget domain event publisher that works from both
-    async and sync contexts.
-
-    - If a running event loop exists: schedule event_bus.publish as a task.
-    - If not: run it in a fresh event loop (blocking in that thread).
+    Synchronous domain event publisher for use in sync code.
     """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # No running loop in this thread (e.g. FastAPI sync endpoint threadpool)
-        asyncio.run(event_bus.publish(event_type, payload))
-    else:
-        loop.create_task(event_bus.publish(event_type, payload))
+    logger.info(f"📢 Publishing event: {event_type} with payload: {payload}")
+    asyncio.run(event_bus.publish(event_type, payload))
+
+
+async def publish_event_async(event_type: str, payload: Dict[str, Any]) -> None:
+    """
+    Async domain event publisher for use in async handlers.
+    """
+    logger.info(f"📢 Publishing event: {event_type} with payload: {payload}")
+    await event_bus.publish(event_type, payload)

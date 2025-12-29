@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.utils import utcnow
 from app.core.errors import NotFoundError, ValidationError
-from app.shared.services.event_publisher import publish_event
+from app.shared.services.event_publisher import publish_event_async  # Changed!
 
 from .models import StatusEnum
 from .repository import SeatLockRepository
@@ -19,12 +19,24 @@ seat_repo = SeatLockRepository()
 class SeatAvailabilityService:
 
     @staticmethod
-    def lock_seat(
+    async def lock_seat(  # Made async
         db: Session, *, showtime_id: int, seat_code: str, user_id: int
     ):
         seat = seat_repo.get_by_showtime_and_code(db, showtime_id, seat_code)
+        
+        # CREATE SEAT ON-DEMAND IF IT DOESN'T EXIST
         if not seat:
-            raise NotFoundError("Seat does not exist", {"seat_code": seat_code})
+            from .models import SeatLock  # Import here to avoid circular imports
+            
+            seat = SeatLock(
+                showtime_id=showtime_id,
+                seat_code=seat_code,
+                status=StatusEnum.AVAILABLE,
+                locked_by_user_id=None,
+                lock_expires_at=None,
+            )
+            db.add(seat)
+            db.flush()  # Get the ID without committing
 
         # Cannot lock reserved seats
         if seat.status == StatusEnum.RESERVED:
@@ -47,7 +59,7 @@ class SeatAvailabilityService:
         db.commit()
         db.refresh(seat)
 
-        publish_event(
+        await publish_event_async(  # Changed!
             "seat.locked",
             {
                 "showtime_id": showtime_id,
@@ -60,7 +72,7 @@ class SeatAvailabilityService:
         return seat
 
     @staticmethod
-    def unlock_seat(
+    async def unlock_seat(  # Made async
         db: Session, *, showtime_id: int, seat_code: str
     ):
         seat = seat_repo.get_by_showtime_and_code(db, showtime_id, seat_code)
@@ -75,7 +87,7 @@ class SeatAvailabilityService:
         db.commit()
         db.refresh(seat)
 
-        publish_event(
+        await publish_event_async(  # Changed!
             "seat.unlocked",
             {
                 "showtime_id": showtime_id,
@@ -86,7 +98,7 @@ class SeatAvailabilityService:
         return seat
 
     @staticmethod
-    def mark_reserved(
+    async def mark_reserved(  # Made async
         db: Session, *, showtime_id: int, seat_code: str
     ):
         seat = seat_repo.get_by_showtime_and_code(db, showtime_id, seat_code)
@@ -107,7 +119,7 @@ class SeatAvailabilityService:
         db.commit()
         db.refresh(seat)
 
-        publish_event(
+        await publish_event_async(  # Changed!
             "seat.reserved",
             {
                 "showtime_id": showtime_id,
@@ -118,7 +130,7 @@ class SeatAvailabilityService:
         return seat
 
     @staticmethod
-    def expire_seats(db: Session) -> int:
+    async def expire_seats(db: Session) -> int:  # Made async
         now = utcnow()
 
         expired_seats = seat_repo.get_expired(db, now)
@@ -128,7 +140,7 @@ class SeatAvailabilityService:
             seat.locked_by_user_id = None
             seat.lock_expires_at = None
 
-            publish_event(
+            await publish_event_async(  # Changed!
                 "seat.expired",
                 {
                     "showtime_id": seat.showtime_id,
@@ -141,6 +153,7 @@ class SeatAvailabilityService:
 
     @staticmethod
     def get_availability_grid(db: Session, showtime_id: int):
+        # This one stays sync - no events published
         seats = seat_repo.list_for_showtime(db, showtime_id)
 
         return [
@@ -150,4 +163,3 @@ class SeatAvailabilityService:
             }
             for seat in seats
         ]
-

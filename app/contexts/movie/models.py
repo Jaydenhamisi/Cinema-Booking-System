@@ -11,7 +11,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from ...core.database import Base 
+from app.core.base import Base 
 
 
 class AgeRatingEnum(str, PyEnum):
@@ -48,7 +48,7 @@ class Movie(Base):
         CheckConstraint("duration_minutes > 0", name="ck_duration_positive"),
     )
 
-    showtimes = relationship("Showtime", back_populates="movie")
+    showtimes = relationship("Showtime")
 
 
 

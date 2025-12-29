@@ -11,7 +11,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class FormatEnum(str, PyEnum):
@@ -53,4 +53,6 @@ class Showtime(Base):
 
     movie = relationship("Movie", lazy="selectin")
     screen = relationship("Screen", lazy="selectin")
+
+    
 

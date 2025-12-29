@@ -16,7 +16,7 @@ async def on_user_registered(payload: dict):
         if not user_id or not email:
             return
         
-        profile_service.create_profile(
+        await profile_service.create_profile(  # Added await!
             db,
             user_id=user_id,
             email=email,
@@ -33,7 +33,7 @@ async def on_admin_force_delete(payload: dict):
         if not user_id:
             return
         
-        profile_service.delete_profile(
+        await profile_service.delete_profile(  # Added await!
             db,
             user_id=user_id,
         )

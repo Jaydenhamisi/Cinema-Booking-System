@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, func, Boolean
 
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class UserCredential(Base):

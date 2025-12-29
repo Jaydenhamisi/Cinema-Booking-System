@@ -5,6 +5,10 @@ from sqlalchemy.orm import Session
 from app.core.errors import ValidationError, NotFoundError, ConflictError
 from app.shared.services.event_publisher import publish_event
 
+# ADD THESE IMPORTS:
+from app.contexts.seat_availability.repository import SeatLockRepository
+from app.contexts.seat_availability.models import StatusEnum
+
 from .models import Reservation, ReservationStatus
 from .schemas import ReservationCreate
 from .repository import ReservationRepository
@@ -15,6 +19,7 @@ from .events import (
 )
 
 repo = ReservationRepository()
+seat_repo = SeatLockRepository()  # ADD THIS
 
 RESERVATION_DURATION = timedelta(minutes=10)
 
@@ -28,6 +33,28 @@ def create_reservation(
     # Basic validation
     if not data.seat_code:
         raise ValidationError("Seat code is required")
+
+    # ===== PRE-CHECK SEAT AVAILABILITY =====
+    # Check if seat is available BEFORE creating reservation
+    seat_lock = seat_repo.get_by_showtime_and_code(
+        db, 
+        data.showtime_id, 
+        data.seat_code
+    )
+    
+    # If seat exists and is not available, reject immediately
+    if seat_lock:
+        if seat_lock.status == StatusEnum.RESERVED:
+            raise ValidationError(
+                "Seat is already reserved",
+                {"seat_code": data.seat_code}
+            )
+        if seat_lock.status == StatusEnum.LOCKED and seat_lock.locked_by_user_id != user_id:
+            raise ValidationError(
+                "Seat is locked by another user",
+                {"seat_code": data.seat_code}
+            )
+    # ===== END PRE-CHECK =====
 
     # Expiration time aligned with seat lock duration
     now = datetime.now(timezone.utc)

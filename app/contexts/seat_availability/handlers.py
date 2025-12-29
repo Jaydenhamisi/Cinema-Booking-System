@@ -10,7 +10,6 @@ seat_service = SeatAvailabilityService()
 seat_repo = SeatLockRepository()
 
 
-
 async def on_reservation_created(payload: dict):
     db = SessionLocal()
     try:
@@ -21,7 +20,7 @@ async def on_reservation_created(payload: dict):
         if not showtime_id or not seat_code or not user_id:
             return
 
-        seat_service.lock_seat(
+        await seat_service.lock_seat(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
@@ -29,7 +28,6 @@ async def on_reservation_created(payload: dict):
         )
     finally:
         db.close()
-    
 
 
 async def on_reservation_cancelled(payload: dict):
@@ -41,14 +39,13 @@ async def on_reservation_cancelled(payload: dict):
         if not showtime_id or not seat_code:
             return
         
-        seat_service.unlock_seat(
+        await seat_service.unlock_seat(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
         )
     finally:
         db.close()
-    
 
 
 async def on_payment_succeeded(payload: dict):
@@ -60,14 +57,13 @@ async def on_payment_succeeded(payload: dict):
         if not showtime_id or not seat_code:
             return
         
-        seat_service.mark_reserved(
+        await seat_service.mark_reserved(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
         )
     finally:
         db.close()
-
 
 
 async def on_payment_failed(payload: dict):
@@ -79,14 +75,13 @@ async def on_payment_failed(payload: dict):
         if not showtime_id or not seat_code:
             return
         
-        seat_service.unlock_seat(
+        await seat_service.unlock_seat(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
         )
     finally:
         db.close()
-
 
 
 async def on_order_expired(payload: dict):
@@ -98,15 +93,13 @@ async def on_order_expired(payload: dict):
         if not showtime_id or not seat_code:
             return
         
-        seat_service.unlock_seat(
+        await seat_service.unlock_seat(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
         )
     finally:
         db.close()
-
-        
 
 
 async def on_showtime_cancelled(payload: dict):
@@ -119,14 +112,13 @@ async def on_showtime_cancelled(payload: dict):
         seats = seat_repo.list_for_showtime(db, showtime_id)
 
         for seat in seats:
-            seat_service.unlock_seat(
+            await seat_service.unlock_seat(  # Added await!
                 db,
                 showtime_id=showtime_id,
                 seat_code=seat.seat_code,
             )
     finally:
         db.close()
-
 
 
 async def on_admin_force_unlock(payload: dict):
@@ -138,7 +130,7 @@ async def on_admin_force_unlock(payload: dict):
         if not showtime_id or not seat_code:
             return
         
-        seat_service.unlock_seat(
+        await seat_service.unlock_seat(  # Added await!
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,

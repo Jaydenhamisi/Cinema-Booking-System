@@ -13,7 +13,7 @@ async def on_payment_succeeded(payload: dict):
     
     db = SessionLocal()
     try:
-        complete_order_from_event(db, order_id)
+        await complete_order_from_event(db, order_id)  # ADD AWAIT!
     finally:
         db.close()
 

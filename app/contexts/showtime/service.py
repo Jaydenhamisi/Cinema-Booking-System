@@ -11,6 +11,7 @@ from .events import (
     showtime_created_event,
     showtime_updated_event,
     showtime_deleted_event,
+    showtime_cancelled_event
 )
 
 from app.contexts.movie.models import Movie
@@ -164,3 +165,20 @@ def delete_showtime(db: Session, showtime_id: int) -> None:
     publish_event(event["type"], event["payload"])
 
 
+
+def cancel_showtime(db: Session, showtime_id: int, reason: str = None) -> Showtime:
+    showtime = repo.get(db, showtime_id)
+    if not showtime:
+        raise NotFoundError("Showtime not found", context={"showtime_id": showtime_id})
+    
+    if not showtime.is_active:
+        return showtime  # Already cancelled
+    
+    showtime.is_active = False
+    db.commit()
+    db.refresh(showtime)
+    
+    event = showtime_cancelled_event(showtime_id, reason)
+    publish_event(event["type"], event["payload"])
+    
+    return showtime

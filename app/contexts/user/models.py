@@ -9,7 +9,7 @@ from sqlalchemy import (
     Enum as SAEnum
 )
 
-from app.core.database import Base
+from app.core.base import Base 
 
 class UserTypeEnum(str, PyEnum):
     USER = "user"

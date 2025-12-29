@@ -30,11 +30,15 @@ def create_payment_attempt(
 
     payment_attempt = repo.create_payment_attempt(db, payment_attempt)
 
+    # Get user_id from the order
+    order = payment_attempt.order  # Assuming relationship exists
+    
     event = payment_attempt_pending_event(
         payment_attempt_id=payment_attempt.id,
         order_id=order_id,
         amount_attempted=final_amount,
-        final_amount=final_amount
+        final_amount=final_amount,
+        user_id=order.user_id  # ADD THIS
     )
     publish_event(event["type"], event["payload"])
 
@@ -74,7 +78,8 @@ def mark_payment_succeeded(
     event = payment_attempt_succeeded_event(
         payment_attempt_id=payment_attempt_id,
         order_id=order.id,
-        final_amount=payment_attempt.final_amount
+        final_amount=payment_attempt.final_amount,
+        user_id=order.user_id  # ADD THIS
     )
     publish_event(event["type"], event["payload"])
 
@@ -106,12 +111,15 @@ def mark_payment_failed(
 
     repo.save(db, payment_attempt)
 
+    # Get order for user_id
+    order = payment_attempt.order  # ADD THIS
+
     event = payment_attempt_failed_event(
         payment_attempt_id=payment_attempt_id,
         failure_reason=payment_attempt.failure_reason,
-        order_id=payment_attempt.order_id
+        order_id=payment_attempt.order_id,
+        user_id=order.user_id  # ADD THIS
     )
     publish_event(event["type"], event["payload"])
 
     return payment_attempt
-

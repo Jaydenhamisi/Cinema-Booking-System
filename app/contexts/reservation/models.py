@@ -12,7 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.core.database import Base
+from app.core.base import Base 
 
 
 class ReservationStatus(str, PyEnum):
@@ -44,7 +44,6 @@ class Reservation(Base):
     )
     expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    showtime = relationship("Showtime", back_populates="reservations")
 
     __table_args__ = (
         Index(

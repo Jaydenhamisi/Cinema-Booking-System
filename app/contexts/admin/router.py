@@ -96,3 +96,15 @@ def delete_user_profile(
     service = UserProfileService()
     service.delete_profile(db, user_id)
     # 204 No Content - successful deletion, no response body
+
+
+
+@router.post("/showtimes/{showtime_id}/cancel")
+def admin_cancel_showtime(
+    showtime_id: int,
+    reason: str = None,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_admin),
+):
+    from app.contexts.showtime.service import cancel_showtime
+    return cancel_showtime(db, showtime_id, reason)

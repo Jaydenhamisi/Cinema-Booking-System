@@ -23,7 +23,7 @@ def list_user_orders(
     return repo.list_orders(
         db=db,
         user_id=current_user.id,
-        completed_only=True
+        completed_only=False
     )
 
     

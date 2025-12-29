@@ -8,7 +8,7 @@ from sqlalchemy import (
     JSON
 )
 
-from app.core.database import Base
+from app.core.base import Base 
 
 class AuditLogEntry(Base):
     __tablename__ = "audit_logs"
