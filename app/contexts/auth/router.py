@@ -22,17 +22,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def register(
+async def register(  # Made async!
     payload: SignUpRequest,
     db: Session = Depends(get_db),
 ):
     auth_service = AuthService()
     
     # Register user
-    user = auth_service.register_user(db, payload)
+    user = await auth_service.register_user(db, payload)  # Added await!
     
     # Auto-login (return tokens)
-    tokens = auth_service.login(db, payload.email, payload.password)
+    tokens = await auth_service.login(db, payload.email, payload.password)  # Added await!
     
     return tokens
 
@@ -45,12 +45,12 @@ def register(
     "/login",
     response_model=TokenResponse,
 )
-def login(
+async def login(  # Made async!
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
     auth_service = AuthService()
-    token = auth_service.login(
+    token = await auth_service.login(  # Added await!
         db=db,
         email=form_data.username,
         password=form_data.password,
@@ -59,7 +59,7 @@ def login(
 
 
 # -----------------------------------------------------------
-# Refresh
+# Refresh (stays sync - no events)
 # -----------------------------------------------------------
 
 @router.post(

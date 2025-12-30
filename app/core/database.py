@@ -49,5 +49,5 @@ from app.contexts.seat_availability.models import SeatLock
 from app.contexts.order.models import Order
 from app.contexts.pricing.models import PriceModifier  
 from app.contexts.payment.models import PaymentAttempt  
-from app.contexts.refund.models import Refund
+from app.contexts.refund.models import RefundRequest
 from app.contexts.audit.models import AuditLogEntry

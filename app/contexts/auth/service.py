@@ -18,7 +18,7 @@ from app.contexts.auth.events import (
     user_registered_event,
     user_logged_in_event,
 )
-from app.shared.services.event_publisher import publish_event
+from app.shared.services.event_publisher import publish_event_async  # Changed!
 
 
 class AuthService:
@@ -36,7 +36,7 @@ class AuthService:
     # Registration
     # -------------------------------------------------------
 
-    def register_user(self, db: Session, payload: SignUpRequest):
+    async def register_user(self, db: Session, payload: SignUpRequest):  # Made async!
         existing = self.repo.get_user_by_email(db, payload.email)
         if existing:
             raise HTTPException(
@@ -49,7 +49,7 @@ class AuthService:
         
         # Emit event
         event = user_registered_event(user.id, user.email)
-        publish_event(event["type"], event["payload"])
+        await publish_event_async(event["type"], event["payload"])  # Changed!
         
         return user
 
@@ -58,6 +58,7 @@ class AuthService:
     # -------------------------------------------------------
 
     def authenticate_user(self, db: Session, email: str, password: str):
+        """This stays sync - just validation logic"""
         user = self.repo.get_user_by_email(db, email)
         if not user:
             return None
@@ -67,7 +68,7 @@ class AuthService:
 
         return user
 
-    def login(self, db: Session, email: str, password: str) -> TokenResponse:
+    async def login(self, db: Session, email: str, password: str) -> TokenResponse:  # Made async!
         user = self.authenticate_user(db, email, password)
         if not user:
             raise HTTPException(
@@ -83,7 +84,7 @@ class AuthService:
         
         # Emit event
         event = user_logged_in_event(user.id, user.email)
-        publish_event(event["type"], event["payload"])
+        await publish_event_async(event["type"], event["payload"])  # Changed!
 
         return TokenResponse(
             access_token=access_token,
@@ -91,7 +92,7 @@ class AuthService:
         )
 
     # -------------------------------------------------------
-    # Refresh
+    # Refresh (stays sync - no events)
     # -------------------------------------------------------
 
     def refresh_tokens(self, db: Session, refresh_token: str) -> TokenResponse:
