@@ -1,11 +1,11 @@
+# app/contexts/reservation/service.py
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import ValidationError, NotFoundError, ConflictError
-from app.shared.services.event_publisher import publish_event
+from app.shared.services.event_publisher import publish_event_async
 
-# ADD THESE IMPORTS:
 from app.contexts.seat_availability.repository import SeatLockRepository
 from app.contexts.seat_availability.models import StatusEnum
 
@@ -18,124 +18,145 @@ from .events import (
     reservation_expired_event,
 )
 
-repo = ReservationRepository()
-seat_repo = SeatLockRepository()  # ADD THIS
 
 RESERVATION_DURATION = timedelta(minutes=10)
 
 
-def create_reservation(
-    db: Session,
-    *,
-    user_id: int,
-    data: ReservationCreate,
-) -> Reservation:
-    # Basic validation
-    if not data.seat_code:
-        raise ValidationError("Seat code is required")
-
-    # ===== PRE-CHECK SEAT AVAILABILITY =====
-    # Check if seat is available BEFORE creating reservation
-    seat_lock = seat_repo.get_by_showtime_and_code(
-        db, 
-        data.showtime_id, 
-        data.seat_code
-    )
+class ReservationService:
+    """Service for Reservation business logic."""
     
-    # If seat exists and is not available, reject immediately
-    if seat_lock:
-        if seat_lock.status == StatusEnum.RESERVED:
-            raise ValidationError(
-                "Seat is already reserved",
-                {"seat_code": data.seat_code}
-            )
-        if seat_lock.status == StatusEnum.LOCKED and seat_lock.locked_by_user_id != user_id:
-            raise ValidationError(
-                "Seat is locked by another user",
-                {"seat_code": data.seat_code}
-            )
-    # ===== END PRE-CHECK =====
+    def __init__(self):
+        self.repo = ReservationRepository()
+        self.seat_repo = SeatLockRepository()
 
-    # Expiration time aligned with seat lock duration
-    now = datetime.now(timezone.utc)
-    expires_at = now + RESERVATION_DURATION
+    async def create_reservation(
+        self,
+        db: Session,
+        user_id: int,
+        data: ReservationCreate,
+    ) -> Reservation:
+        """Create a new reservation."""
+        # Basic validation
+        if not data.seat_code:
+            raise ValidationError("Seat code is required")
 
-    reservation = Reservation(
-        user_id=user_id,
-        showtime_id=data.showtime_id,
-        seat_code=data.seat_code,
-        status=ReservationStatus.ACTIVE,
-        expires_at=expires_at,
-    )
+        # ===== PRE-CHECK SEAT AVAILABILITY =====
+        seat_lock = self.seat_repo.get_by_showtime_and_code(
+            db, 
+            data.showtime_id, 
+            data.seat_code
+        )
+        
+        # If seat exists and is not available, reject immediately
+        if seat_lock:
+            if seat_lock.status == StatusEnum.RESERVED:
+                raise ValidationError(
+                    "Seat is already reserved",
+                    {"seat_code": data.seat_code}
+                )
+            if seat_lock.status == StatusEnum.LOCKED and seat_lock.locked_by_user_id != user_id:
+                raise ValidationError(
+                    "Seat is locked by another user",
+                    {"seat_code": data.seat_code}
+                )
+        # ===== END PRE-CHECK =====
 
-    reservation = repo.create(db, reservation)
+        # Expiration time aligned with seat lock duration
+        now = datetime.now(timezone.utc)
+        expires_at = now + RESERVATION_DURATION
 
-    event = reservation_created_event(
-        reservation_id=reservation.id,
-        user_id=user_id,
-        showtime_id=data.showtime_id,
-        seat_code=data.seat_code,
-    )
-    publish_event(event["type"], event["payload"])
+        reservation = Reservation(
+            user_id=user_id,
+            showtime_id=data.showtime_id,
+            seat_code=data.seat_code,
+            status=ReservationStatus.ACTIVE,
+            expires_at=expires_at,
+        )
 
-    return reservation
+        reservation = self.repo.create(db, reservation)
 
+        # Emit event
+        event = reservation_created_event(
+            reservation_id=reservation.id,
+            user_id=user_id,
+            showtime_id=data.showtime_id,
+            seat_code=data.seat_code,
+        )
+        await publish_event_async(event["type"], event["payload"])
 
-def cancel_reservation(
-    db: Session,
-    *,
-    reservation_id: int,
-    user_id: int | None = None,
-    allow_admin_override: bool = False,
-) -> Reservation:
-    reservation = repo.get_by_id(db, reservation_id)
-    if reservation is None:
-        raise NotFoundError("Reservation not found")
-
-    # Optional: user ownership check (plug this in once auth is wired)
-    if user_id is not None and not allow_admin_override:
-        if reservation.user_id != user_id:
-            raise ConflictError("Cannot cancel another user's reservation")
-
-    if reservation.status != ReservationStatus.ACTIVE:
-        # idempotent: if already terminal, do nothing
         return reservation
 
-    reservation.status = ReservationStatus.CANCELLED
-    reservation.expires_at = None
+    async def cancel_reservation(
+        self,
+        db: Session,
+        reservation_id: int,
+        user_id: int = None,
+        allow_admin_override: bool = False,
+    ) -> Reservation:
+        """Cancel a reservation."""
+        reservation = self.repo.get_by_id(db, reservation_id)
+        if reservation is None:
+            raise NotFoundError("Reservation not found")
 
-    reservation = repo.save(db, reservation)
+        # Check ownership (unless admin override)
+        if user_id is not None and not allow_admin_override:
+            if reservation.user_id != user_id:
+                raise ConflictError("Cannot cancel another user's reservation")
 
-    event = reservation_cancelled_event(reservation.id)
-    publish_event(event["type"], event["payload"])
+        if reservation.status != ReservationStatus.ACTIVE:
+            # Idempotent: if already terminal, just return
+            return reservation
 
-    return reservation
+        reservation.status = ReservationStatus.CANCELLED
+        reservation.expires_at = None
 
+        reservation = self.repo.save(db, reservation)
 
-def expire_reservation(
-    db: Session,
-    *,
-    reservation: Reservation,
-) -> Reservation:
-    if reservation.status != ReservationStatus.ACTIVE:
+        # Emit event
+        event = reservation_cancelled_event(reservation.id)
+        await publish_event_async(event["type"], event["payload"])
+
         return reservation
 
-    reservation.status = ReservationStatus.EXPIRED
-    reservation.expires_at = None
+    async def expire_reservation(
+        self,
+        db: Session,
+        reservation: Reservation,
+    ) -> Reservation:
+        """Expire a reservation (called by background worker)."""
+        if reservation.status != ReservationStatus.ACTIVE:
+            return reservation
 
-    reservation = repo.save(db, reservation)
+        reservation.status = ReservationStatus.EXPIRED
+        reservation.expires_at = None
 
-    event = reservation_expired_event(reservation.id)
-    publish_event(event["type"], event["payload"])
+        reservation = self.repo.save(db, reservation)
 
-    return reservation
+        # Emit event
+        event = reservation_expired_event(reservation.id)
+        await publish_event_async(event["type"], event["payload"])
 
+        return reservation
 
-def sweep_expired_reservations(db: Session) -> int:
-    now = datetime.now(timezone.utc)
-    expired = repo.get_expired(db, now)
+    async def sweep_expired_reservations(self, db: Session) -> int:
+        """Background task: expire all reservations past their expiration time."""
+        now = datetime.now(timezone.utc)
+        expired = self.repo.get_expired(db, now)
 
-    for res in expired:
-        expire_reservation(db, reservation=res)
+        for res in expired:
+            await self.expire_reservation(db, reservation=res)
 
-    return len(expired)
+        return len(expired)
+    
+    # ===== READ OPERATIONS (sync) =====
+    
+    def get_reservation(self, db: Session, reservation_id: int) -> Reservation:
+        """Get reservation by ID."""
+        reservation = self.repo.get_by_id(db, reservation_id)
+        if not reservation:
+            raise NotFoundError("Reservation not found")
+        return reservation
+    
+    def list_user_reservations(self, db: Session, user_id: int):
+        """List all reservations for a user."""
+        return self.repo.list_for_user(db, user_id)

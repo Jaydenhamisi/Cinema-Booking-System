@@ -3,7 +3,10 @@
 from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
-from app.contexts.order.service import complete_order_from_event
+from app.contexts.order.service import OrderService  # Changed!
+
+order_service = OrderService()  # Add this!
+
 
 async def on_payment_succeeded(payload: dict):
     order_id = payload.get("order_id")
@@ -13,7 +16,7 @@ async def on_payment_succeeded(payload: dict):
     
     db = SessionLocal()
     try:
-        await complete_order_from_event(db, order_id)  # ADD AWAIT!
+        await order_service.complete_order_from_event(db, order_id)  # Use service!
     finally:
         db.close()
 

@@ -1,14 +1,11 @@
+# app/contexts/reservation/handlers.py
 from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
 from .models import ReservationStatus
-from .repository import ReservationRepository
-from .service import (
-    cancel_reservation,
-    expire_reservation,
-)
+from .service import ReservationService
 
-repo = ReservationRepository()
+reservation_service = ReservationService()
 
 
 async def on_seat_expired(payload: dict):
@@ -20,13 +17,17 @@ async def on_seat_expired(payload: dict):
 
     db = SessionLocal()
     try:
+        # Get reservation directly from repo (handler doesn't go through service for this)
+        from .repository import ReservationRepository
+        repo = ReservationRepository()
+        
         reservation = repo.get_active_by_showtime_and_seat(
             db,
             showtime_id=showtime_id,
             seat_code=seat_code,
         )
         if reservation:
-            expire_reservation(db, reservation=reservation)
+            await reservation_service.expire_reservation(db, reservation=reservation)
     finally:
         db.close()
 
@@ -38,9 +39,12 @@ async def on_showtime_cancelled(payload: dict):
 
     db = SessionLocal()
     try:
+        from .repository import ReservationRepository
+        repo = ReservationRepository()
+        
         reservations = repo.list_active_for_showtime(db, showtime_id)
         for res in reservations:
-            cancel_reservation(
+            await reservation_service.cancel_reservation(
                 db,
                 reservation_id=res.id,
                 allow_admin_override=True,
@@ -56,7 +60,7 @@ async def on_admin_force_cancel_reservation(payload: dict):
 
     db = SessionLocal()
     try:
-        cancel_reservation(
+        await reservation_service.cancel_reservation(
             db,
             reservation_id=reservation_id,
             allow_admin_override=True,

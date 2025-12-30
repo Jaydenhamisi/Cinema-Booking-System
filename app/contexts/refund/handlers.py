@@ -1,46 +1,50 @@
+# app/contexts/refund/handlers.py
+import logging
+from typing import Dict, Any
+
 from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
-from app.contexts.refund.service import issue_refund_from_event
-from app.contexts.order.repository import OrderRepository
-from app.contexts.payment.repository import PaymentRepository
-from app.contexts.reservation.repository import ReservationRepository
+from .service import RefundService
 
-order_repo = OrderRepository()
-payment_repo = PaymentRepository()
-reservation_repo = ReservationRepository()
+logger = logging.getLogger(__name__)
+
+# Create service instance
+refund_service = RefundService()
 
 
-async def on_reservation_cancelled(payload: dict):
-    reservation_id = payload.get("reservation_id")
-    if not reservation_id:
+async def on_refund_approved(payload: Dict[str, Any]) -> None:
+    """
+    When a refund is approved, mark it as completed (mock refund processing).
+    In production, this would integrate with payment processor.
+    """
+    refund_request_id = payload.get("refund_request_id")
+    user_id = payload.get("user_id")
+
+    if not refund_request_id:
+        logger.warning("⚠️ Received refund.request_approved without refund_request_id")
         return
+
+    logger.info(f"💳 Processing approved refund {refund_request_id}")
 
     db = SessionLocal()
     try:
-        order = order_repo.get_order_by_reservation_id(db, reservation_id)
-        if not order:
-            return
-
-        payment_attempts = payment_repo.list_payment_attempts_for_order(
-            db,
-            order_id=order.id
+        # Mock provider refund ID
+        provider_refund_id = f"mock_refund_{refund_request_id}"
+        
+        await refund_service.complete_refund(
+            db=db,
+            refund_request_id=refund_request_id,
+            provider_refund_id=provider_refund_id,
+            user_id=user_id,
         )
-        if not payment_attempts:
-            return
-
-        payment_attempt = payment_attempts[0]  
-
-        issue_refund_from_event(
-            db,
-            reservation_id=reservation_id,
-            payment_attempt_id=payment_attempt.id,
-            reason="reservation_cancelled"
-        )
+        logger.info(f"✓ Refund {refund_request_id} completed with provider ID: {provider_refund_id}")
+    except Exception as e:
+        logger.error(f"❌ Failed to complete refund {refund_request_id}: {e}")
+        raise
     finally:
         db.close()
 
 
-# ADD THIS LINE:
-event_bus.subscribe("reservation.cancelled", on_reservation_cancelled)
-        
+# Register with event bus
+event_bus.subscribe("refund.request_approved", on_refund_approved)

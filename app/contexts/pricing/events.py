@@ -15,28 +15,31 @@ def pricing_snapshot_created_event(order_id: int, snapshot: dict) -> dict:
     }
 
 
-def pricing_modifier_created_event(modifier_id: int) -> dict:
+def pricing_modifier_created_event(modifier_id: int, user_id: int = None) -> dict:
     return {
         "type": "pricing.modifier_created",
         "payload": {
-            "modifier_id": modifier_id
+            "modifier_id": modifier_id,
+            "user_id": user_id,
         },
     }
 
 
-def pricing_modifier_updated_event(modifier_id: int) -> dict:
+def pricing_modifier_updated_event(modifier_id: int, user_id: int = None) -> dict:
     return {
         "type": "pricing.modifier_updated",
         "payload": {
-            "modifier_id": modifier_id
+            "modifier_id": modifier_id,
+            "user_id": user_id,
         },
     }
 
 
-def pricing_modifier_deleted_event(modifier_id: int) -> dict:
+def pricing_modifier_deleted_event(modifier_id: int, user_id: int = None) -> dict:
     return {
         "type": "pricing.modifier_deleted",
         "payload": {
-            "modifier_id": modifier_id
+            "modifier_id": modifier_id,
+            "user_id": user_id,
         },
     }

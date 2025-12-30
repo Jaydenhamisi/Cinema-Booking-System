@@ -1,21 +1,15 @@
 # app/contexts/order/handlers.py
-
 import logging
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.event_bus import event_bus
 
-from .service import (
-    create_order_from_event,
-    complete_order_from_event,
-    cancel_order_from_event,
-    expire_order_from_event,
-) 
-
-from .repository import OrderRepository
+from .service import OrderService
 
 logger = logging.getLogger(__name__)
-repo = OrderRepository()
+
+# Create service instance
+order_service = OrderService()
 
 
 async def on_reservation_created(payload: dict):
@@ -32,7 +26,7 @@ async def on_reservation_created(payload: dict):
             return
         
         logger.info(f"Creating order for reservation {reservation_id}")
-        await create_order_from_event(  # Added await!
+        await order_service.create_order_from_event(
             db,
             user_id=user_id,
             reservation_id=reservation_id,
@@ -55,12 +49,12 @@ async def on_reservation_cancelled(payload: dict):
     
     db = SessionLocal()
     try:
-        order = repo.get_order_by_reservation_id(
+        order = order_service.repo.get_by_reservation_id(
             db,
             reservation_id=reservation_id,
         )
         if order:
-            await cancel_order_from_event(db, order_id=order.id)  # Added await!
+            await order_service.cancel_order_from_event(db, order_id=order.id)
     finally:
         db.close()
 
@@ -74,12 +68,12 @@ async def on_reservation_expired(payload: dict):
     
     db = SessionLocal()
     try:
-        order = repo.get_order_by_reservation_id(
+        order = order_service.repo.get_by_reservation_id(
             db,
             reservation_id=reservation_id,
         )
         if order:
-            await expire_order_from_event(db, order_id=order.id)  # Added await!
+            await order_service.expire_order_from_event(db, order_id=order.id)
     finally:
         db.close()
 
@@ -97,7 +91,7 @@ async def on_pricing_snapshot_created(payload: dict):
     
     db = SessionLocal()
     try:
-        order = repo.get_order_by_id(db, order_id)
+        order = order_service.repo.get_by_id(db, order_id)
         if not order:
             logger.error(f"Order {order_id} not found")
             return

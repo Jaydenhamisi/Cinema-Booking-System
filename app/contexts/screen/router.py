@@ -1,9 +1,9 @@
 # app/contexts/screen/router.py
-
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.contexts.auth.dependencies import get_current_user
 from .schemas import (
     ScreenCreate,
     ScreenUpdate,
@@ -12,36 +12,31 @@ from .schemas import (
     SeatLayoutUpdate,
     SeatLayoutRead,
 )
-from .service import (
-    create_screen,
-    update_screen,
-    delete_screen,
-    get_screen,
-    list_screens,
-    create_layout,
-    update_layout,
-    delete_layout,
-    get_layout,
-    list_layouts,
-)
+from .service import ScreenService
 
 router = APIRouter(
     prefix="/screen",
     tags=["screens"],
 )
 
+# Create service instance
+screen_service = ScreenService()
+
 # -----------------------------------------------------------
 # SCREEN ROUTES
 # -----------------------------------------------------------
-
 
 @router.post(
     "/screens",
     response_model=ScreenRead,
     status_code=status.HTTP_201_CREATED,
 )
-def screen_create(payload: ScreenCreate, db: Session = Depends(get_db)):
-    return create_screen(db=db, data=payload)
+async def screen_create(
+    payload: ScreenCreate, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    return await screen_service.create_screen(db, payload, user_id=current_user.id)
 
 
 @router.get(
@@ -49,7 +44,7 @@ def screen_create(payload: ScreenCreate, db: Session = Depends(get_db)):
     response_model=list[ScreenRead],
 )
 def list_screens_route(db: Session = Depends(get_db)):
-    return list_screens(db=db)
+    return screen_service.list_screens(db)
 
 
 @router.get(
@@ -57,27 +52,32 @@ def list_screens_route(db: Session = Depends(get_db)):
     response_model=ScreenRead,
 )
 def get_screen_route(screen_id: int, db: Session = Depends(get_db)):
-    return get_screen(db=db, screen_id=screen_id)
+    return screen_service.get_screen(db, screen_id)
 
 
 @router.put(
     "/screens/{screen_id}",
     response_model=ScreenRead,
 )
-def screen_update_route(
+async def screen_update_route(
     screen_id: int,
     payload: ScreenUpdate,
     db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
 ):
-    return update_screen(db=db, screen_id=screen_id, data=payload)
+    return await screen_service.update_screen(db, screen_id, payload, user_id=current_user.id)
 
 
 @router.delete(
     "/screens/{screen_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def screen_delete_route(screen_id: int, db: Session = Depends(get_db)):
-    delete_screen(db=db, screen_id=screen_id)
+async def screen_delete_route(
+    screen_id: int, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    await screen_service.delete_screen(db, screen_id, user_id=current_user.id)
     return None
 
 
@@ -85,14 +85,17 @@ def screen_delete_route(screen_id: int, db: Session = Depends(get_db)):
 # LAYOUT ROUTES
 # -----------------------------------------------------------
 
-
 @router.post(
     "/layouts",
     response_model=SeatLayoutRead,
     status_code=status.HTTP_201_CREATED,
 )
-def layout_create(payload: SeatLayoutCreate, db: Session = Depends(get_db)):
-    return create_layout(db=db, data=payload)
+async def layout_create(
+    payload: SeatLayoutCreate, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    return await screen_service.create_layout(db, payload, user_id=current_user.id)
 
 
 @router.get(
@@ -100,7 +103,7 @@ def layout_create(payload: SeatLayoutCreate, db: Session = Depends(get_db)):
     response_model=list[SeatLayoutRead],
 )
 def list_layouts_route(db: Session = Depends(get_db)):
-    return list_layouts(db=db)
+    return screen_service.list_layouts(db)
 
 
 @router.get(
@@ -108,25 +111,30 @@ def list_layouts_route(db: Session = Depends(get_db)):
     response_model=SeatLayoutRead,
 )
 def get_layout_route(layout_id: int, db: Session = Depends(get_db)):
-    return get_layout(db=db, layout_id=layout_id)
+    return screen_service.get_layout(db, layout_id)
 
 
 @router.put(
     "/layouts/{layout_id}",
     response_model=SeatLayoutRead,
 )
-def layout_update_route(
+async def layout_update_route(
     layout_id: int,
     payload: SeatLayoutUpdate,
     db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
 ):
-    return update_layout(db=db, layout_id=layout_id, data=payload)
+    return await screen_service.update_layout(db, layout_id, payload, user_id=current_user.id)
 
 
 @router.delete(
     "/layouts/{layout_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def layout_delete_route(layout_id: int, db: Session = Depends(get_db)):
-    delete_layout(db=db, layout_id=layout_id)
+async def layout_delete_route(
+    layout_id: int, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    await screen_service.delete_layout(db, layout_id, user_id=current_user.id)
     return None
