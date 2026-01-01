@@ -19,10 +19,9 @@ from app.contexts.payment.router import router as payment_router
 from app.contexts.refund.router import router as refund_router
 from app.contexts.admin.router import router as admin_router
 
+# Only import handlers that actually register events
 from app.contexts.auth import handlers as auth_handlers
 from app.contexts.user import handlers as user_handlers
-from app.contexts.movie import handlers as movie_handlers
-from app.contexts.screen import handlers as screen_handlers
 from app.contexts.showtime import handlers as showtime_handlers
 from app.contexts.seat_availability import handlers as seat_availability_handlers
 from app.contexts.reservation import handlers as reservation_handlers
