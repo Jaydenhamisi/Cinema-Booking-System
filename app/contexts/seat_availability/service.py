@@ -162,13 +162,70 @@ class SeatAvailabilityService:
         return len(expired_seats)
 
     def get_availability_grid(self, db: Session, showtime_id: int):
-        """Get seat availability grid for a showtime (read operation, stays sync)."""
-        seats = self.repo.list_for_showtime(db, showtime_id)
-
-        return [
-            {
-                "seat_code": seat.seat_code,
-                "status": seat.status.value,
-            }
-            for seat in seats
-        ]
+        """Get seat availability grid for a showtime - returns ALL seats from layout"""
+        from app.contexts.showtime.models import Showtime
+        from app.contexts.screen.models import Screen, SeatLayout
+        
+        # Get showtime to find screen
+        showtime = db.get(Showtime, showtime_id)
+        if not showtime:
+            raise NotFoundError("Showtime not found")
+        
+        # Get screen and layout
+        screen = db.get(Screen, showtime.screen_id)
+        if not screen:
+            raise NotFoundError("Screen not found")
+        
+        layout = db.get(SeatLayout, screen.seat_layout_id)
+        if not layout:
+            raise NotFoundError("Layout not found")
+        
+        # Get all existing seat locks for this showtime
+        seat_locks = self.repo.list_for_showtime(db, showtime_id)
+        seat_lock_map = {lock.seat_code: lock for lock in seat_locks}
+        
+        # Generate full grid from layout
+        all_seats = []
+        
+        if layout.grid:
+            # Use the grid to get all seats
+            for row_name, row_seats in layout.grid.items():
+                for seat_code in row_seats:
+                    # Skip aisles
+                    if seat_code == "AISLE":
+                        continue
+                    
+                    # Check if this seat has a lock
+                    if seat_code in seat_lock_map:
+                        lock = seat_lock_map[seat_code]
+                        all_seats.append({
+                            "seat_code": seat_code,
+                            "status": lock.status.value,
+                        })
+                    else:
+                        # Seat exists in layout but not locked/reserved
+                        all_seats.append({
+                            "seat_code": seat_code,
+                            "status": "available",
+                        })
+        else:
+            # Fallback: generate from rows x seats_per_row
+            row_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            for row_idx in range(layout.rows):
+                row = row_letters[row_idx]
+                for seat_num in range(1, layout.seats_per_row + 1):
+                    seat_code = f"{row}-{seat_num}"
+                    
+                    if seat_code in seat_lock_map:
+                        lock = seat_lock_map[seat_code]
+                        all_seats.append({
+                            "seat_code": seat_code,
+                            "status": lock.status.value,
+                        })
+                    else:
+                        all_seats.append({
+                            "seat_code": seat_code,
+                            "status": "available",
+                        })
+        
+        return all_seats

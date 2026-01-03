@@ -8,6 +8,8 @@ from app.shared.services.event_publisher import publish_event_async
 
 from app.contexts.seat_availability.repository import SeatLockRepository
 from app.contexts.seat_availability.models import StatusEnum
+from app.contexts.showtime.models import Showtime
+from app.contexts.screen.models import Screen, SeatLayout
 
 from .models import Reservation, ReservationStatus
 from .schemas import ReservationCreate
@@ -39,6 +41,62 @@ class ReservationService:
         # Basic validation
         if not data.seat_code:
             raise ValidationError("Seat code is required")
+
+        # ===== VALIDATE SEAT EXISTS IN LAYOUT =====
+        # Get showtime to find screen
+        showtime = db.get(Showtime, data.showtime_id)
+        if not showtime:
+            raise NotFoundError("Showtime not found")
+        
+        # Get screen and layout
+        screen = db.get(Screen, showtime.screen_id)
+        if not screen:
+            raise NotFoundError("Screen not found")
+        
+        layout = db.get(SeatLayout, screen.seat_layout_id)
+        if not layout:
+            raise NotFoundError("Seat layout not found")
+        
+        # Validate seat code exists in grid
+        if layout.grid:
+            # Parse seat code (e.g., "A-5" -> row "A", seat "5")
+            try:
+                row_part, seat_num = data.seat_code.split('-')
+                seat_num = int(seat_num)
+            except (ValueError, AttributeError):
+                raise ValidationError(
+                    f"Invalid seat code format: {data.seat_code}",
+                    {"expected_format": "ROW-NUMBER (e.g., A-5)"}
+                )
+            
+            # Check if row exists
+            if row_part not in layout.grid:
+                raise ValidationError(
+                    f"Invalid row: {row_part}",
+                    {"available_rows": list(layout.grid.keys())}
+                )
+            
+            # Check if seat exists in row
+            row_seats = layout.grid[row_part]
+            if data.seat_code not in row_seats:
+                raise ValidationError(
+                    f"Seat {data.seat_code} does not exist in row {row_part}",
+                    {"available_seats": [s for s in row_seats if s != "AISLE"]}
+                )
+        # If no grid, fall back to basic validation (rows x seats_per_row)
+        else:
+            try:
+                row_part, seat_num = data.seat_code.split('-')
+                seat_num = int(seat_num)
+                
+                # Basic bounds check
+                if seat_num < 1 or seat_num > layout.seats_per_row:
+                    raise ValidationError(
+                        f"Seat number must be between 1 and {layout.seats_per_row}"
+                    )
+            except (ValueError, AttributeError):
+                raise ValidationError("Invalid seat code format")
+        # ===== END SEAT VALIDATION =====
 
         # ===== PRE-CHECK SEAT AVAILABILITY =====
         seat_lock = self.seat_repo.get_by_showtime_and_code(
